@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "lodash": "^4.17.21"
+  },
+  "devDependencies": {
+    "aws-sdk": "^2.923.0",
+    "dotenv": "^10.0.0",
+    "uuid": "^8.3.2"
+  }
+}

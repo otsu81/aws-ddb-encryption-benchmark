@@ -1,0 +1,104 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  ddb-encryption-decryption-test
+  Sample SAM Template for ddb-encryption-decryption-test
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 3
+
+Resources:
+  noEncryption:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/none/
+      Handler: noEncryption.handler
+      Runtime: nodejs14.x
+      Environment:
+        Variables:
+          DDB_TABLE: !Ref noEncryptionTable
+      Policies:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: AllowGetNoEncryptionTable
+          Effect: Allow
+          Action: dynamodb:GetItem
+          Resource: !GetAtt noEncryptionTable.Arn
+
+  aesEncryption:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/aes/
+      Handler: aesDecryptionEnvKey.handler
+      Runtime: nodejs14.x
+      Environment:
+        Variables:
+          DDB_TABLE: !Ref aesEncryptionTable
+          KEY: '{{resolve:secretsmanager:benchmark/aes:SecretString:AES_KEY}}'
+      Policies:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: AllowGetEncryptedItem
+          Effect: Allow
+          Action: dynamodb:GetItem
+          Resource: !GetAtt aesEncryptionTable.Arn
+
+  kmsEncryption:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/kms/
+      Handler: kmsDecryption.handler
+      Runtime: nodejs14.x
+      Environment:
+        Variables:
+          DDB_TABLE: !Ref kmsEncryptionTable
+      Policies:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: AllowGetEncryptedItem
+          Effect: Allow
+          Action: dynamodb:GetItem
+          Resource: !GetAtt kmsEncryptionTable.Arn
+        - Action: kms:Decrypt
+          Effect: Allow
+          Resource: arn:aws:kms:eu-north-1:161456459824:key/4c4fcaab-e9fc-4490-928b-13aede4457a1
+
+  noEncryptionTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: benchmark-noEncryptionTable
+      AttributeDefinitions:
+        - AttributeName: cloudKeyId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: cloudKeyId
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+  kmsEncryptionTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: benchmark-kmsEncryptionTable
+      AttributeDefinitions:
+        - AttributeName: cloudKeyId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: cloudKeyId
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+
+  aesEncryptionTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: benchmark-aesEncryptionTable
+      AttributeDefinitions:
+        - AttributeName: cloudKeyId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: cloudKeyId
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
