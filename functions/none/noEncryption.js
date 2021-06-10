@@ -9,5 +9,7 @@ exports.handler = async (event) => {
     }
   }).promise();
   if ((result.Item.cloudPrivateKey).startsWith('-----BEGIN RSA PRIVATE KEY-----')) return true;
-  else return false;
+  else {
+    throw new Error('private key not decoded');
+  };
 };

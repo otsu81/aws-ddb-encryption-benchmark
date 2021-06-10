@@ -28,5 +28,7 @@ exports.handler = async (event) => {
 
   let decoded = decrypt(result.Item.cloudPrivateKey);
   if ((decoded).startsWith('-----BEGIN RSA PRIVATE KEY-----')) return true;
-  else return false;
+  else {
+    throw new Error('private key not decoded');
+  };
 };
