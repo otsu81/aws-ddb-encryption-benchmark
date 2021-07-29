@@ -1,6 +1,6 @@
 #!/bin/bash
-
 function rand-str {
+
     local DEFAULT_LENGTH=64
     local LENGTH=${1:-$DEFAULT_LENGTH}
 

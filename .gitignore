@@ -135,3 +135,7 @@ loaders/cloud_public_keys/*
 loaders/hub_private_keys/*
 loaders/hub_public_keys/*
 localRun.js
+**/!! backup/
+*sandbox*
+*Sandbox*
+.vscode

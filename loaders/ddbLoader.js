@@ -8,7 +8,7 @@ const KEY = Buffer.from(fs.readFileSync('key')); // read from file "key" - must 
 
 const timer = ms => new Promise( res => setTimeout(res, ms));
 
-function makeBatches (dirs, batchSize) {
+async function makeBatches (dirs, batchSize) {
     const cloudPublicKeys = fs.readdirSync(dirs.cloudPublicKeys);
     const cloudPrivateKeys = fs.readdirSync(dirs.cloudPrivateKeys);
     const hubPublicKeys = fs.readdirSync(dirs.hubPublicKeys);
@@ -29,8 +29,10 @@ function makeBatches (dirs, batchSize) {
         let privateKey = fs.readFileSync(`cloud_private_keys/${cloudPrivateKeys.pop()}`).toString();
         if (process.argv[4] === 'encrypt') {
             privateKey = JSON.stringify(encrypt(privateKey, KEY));
-        }
-        // console.log(privateKey);
+        } else if (process.argv[4] === 'kmsencrypt') {
+            privateKey = await encryptKms(privateKey, process.argv[5]);
+            if (i % 100 === 0) console.log(i);
+        };
 
         row = {
             cloudKeyId: keyIds.pop(),
@@ -60,6 +62,17 @@ function encrypt(val, key){
         hexIv: hexIv,
         hexAuthTag: hexTag,
     };
+};
+
+async function encryptKms(val, key) {
+    const kms = new aws.KMS();
+    const params = {
+        KeyId: key,
+        Plaintext: val,
+    };
+    const { CiphertextBlob } = await kms.encrypt(params).promise();
+    // store encrypted data as base64 encoded string
+    return CiphertextBlob.toString('base64');
 };
 
 async function resolvePromises(promises) {
@@ -115,14 +128,13 @@ async function ddbBatchWriter (batches, ddbTablename, awsRegion) {
 };
 
 async function run(ddbTablename, awsRegion) {
-    const batches = makeBatches({
+    const batches = await makeBatches({
         cloudPrivateKeys: 'cloud_private_keys/',
         cloudPublicKeys: 'cloud_public_keys/',
         hubPublicKeys: 'hub_public_keys/'
     }, 25); // max batch size is 25 requests, 400kb per item, 16MB total
     await ddbBatchWriter(batches, ddbTablename, awsRegion);
-
-}
+};
 
 if (!(process.argv[2] && process.argv[3])) console.log('Must specify DDB table name and region, example usage: node ddbLoader dynamo-table eu-west-1')
 else run(process.argv[2], process.argv[3]);

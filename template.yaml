@@ -65,6 +65,26 @@ Resources:
           Effect: Allow
           Resource: arn:aws:kms:eu-north-1:161456459824:key/4c4fcaab-e9fc-4490-928b-13aede4457a1
 
+  kmsItemEncryption:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/kmsItem/
+      Handler: kmsItemDecryption.handler
+      Runtime: nodejs14.x
+      Environment:
+        Variables:
+          DDB_TABLE: !Ref kmsItemEncryptionTable
+      Policies:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: AllowGetEncryptedItem
+          Effect: Allow
+          Action: dynamodb:GetItem
+          Resource: !GetAtt kmsItemEncryptionTable.Arn
+        - Action: kms:Decrypt
+          Effect: Allow
+          Resource: arn:aws:kms:eu-north-1:161456459824:key/a6962c8b-7cb5-48e0-8b20-15734c824f50
+
   noEncryptionTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -90,6 +110,18 @@ Resources:
       BillingMode: PAY_PER_REQUEST
       SSESpecification:
         SSEEnabled: true
+
+  kmsItemEncryptionTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: benchmark-kmsItemEncryptionTable
+      AttributeDefinitions:
+        - AttributeName: cloudKeyId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: cloudKeyId
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
 
   aesEncryptionTable:
     Type: AWS::DynamoDB::Table
