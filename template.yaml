@@ -1,20 +1,32 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
-  ddb-encryption-decryption-test
-  Sample SAM Template for ddb-encryption-decryption-test
+  Deploys DynamoDB tables and Lambda functions for evaluating price and performance impact for encrypting and decrypting information with various methods
+
+Parameters:
+  SecretArn:
+    Type: String
+    Default: arn:aws:secretsmanager:eu-north-1:161456459824:secret:benchmark/aes-0yvBOe
+    Description: The ARN of the 256-bit AES key stored in secrets manager
+  KMSKeyArn:
+    Type: String
+    Default: arn:aws:kms:eu-north-1:161456459824:key/a6962c8b-7cb5-48e0-8b20-15734c824f50
+    Description: The KeyID of the KMS key used to encrypt, decrypt and store secrets manager values
 
 # More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
     Timeout: 3
+    Environment:
+      Variables:
+        AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
 
 Resources:
   noEncryption:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: functions/none/
-      Handler: noEncryption.handler
+      Handler: decrypt.handler
       Runtime: nodejs14.x
       Environment:
         Variables:
@@ -27,11 +39,11 @@ Resources:
           Action: dynamodb:GetItem
           Resource: !GetAtt noEncryptionTable.Arn
 
-  aesEncryption:
+  aesEnvVar:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: functions/aes/
-      Handler: aesDecryptionEnvKey.handler
+      CodeUri: functions/aesEnvVariable/
+      Handler: decrypt.handler
       Runtime: nodejs14.x
       Environment:
         Variables:
@@ -45,11 +57,60 @@ Resources:
           Action: dynamodb:GetItem
           Resource: !GetAtt aesEncryptionTable.Arn
 
+
+  aesSecrMgr:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/aesDecryptionSecrMgr/
+      Handler: decrypt.handler
+      Runtime: nodejs14.x
+      Environment:
+        Variables:
+          DDB_TABLE: !Ref aesEncryptionTable
+      Policies:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: AllowGetEncryptedItem
+          Effect: Allow
+          Action: dynamodb:GetItem
+          Resource: !GetAtt aesEncryptionTable.Arn
+        - Sid: AllowGetSecret
+          Effect: Allow
+          Action: secretsmanager:GetSecretValue
+          Resource: !Ref SecretArn
+        - Action: kms:Decrypt
+          Effect: Allow
+          Resource: !Ref KMSKeyArn
+
+  aesSecrMgrPooling:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/aesDecryptionSecrMgrPooling/
+      Handler: decrypt.handler
+      Runtime: nodejs14.x
+      Environment:
+        Variables:
+          DDB_TABLE: !Ref aesEncryptionTable
+      Policies:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: AllowGetEncryptedItem
+          Effect: Allow
+          Action: dynamodb:GetItem
+          Resource: !GetAtt aesEncryptionTable.Arn
+        - Sid: AllowGetSecret
+          Effect: Allow
+          Action: secretsmanager:GetSecretValue
+          Resource: !Ref SecretArn
+        - Action: kms:Decrypt
+          Effect: Allow
+          Resource: !Ref KMSKeyArn
+
   kmsEncryption:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: functions/kms/
-      Handler: kmsDecryption.handler
+      Handler: decrypt.handler
       Runtime: nodejs14.x
       Environment:
         Variables:
@@ -63,13 +124,13 @@ Resources:
           Resource: !GetAtt kmsEncryptionTable.Arn
         - Action: kms:Decrypt
           Effect: Allow
-          Resource: arn:aws:kms:eu-north-1:161456459824:key/4c4fcaab-e9fc-4490-928b-13aede4457a1
+          Resource: !Ref KMSKeyArn
 
   kmsItemEncryption:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: functions/kmsItem/
-      Handler: kmsItemDecryption.handler
+      Handler: decrypt.handler
       Runtime: nodejs14.x
       Environment:
         Variables:
@@ -83,7 +144,7 @@ Resources:
           Resource: !GetAtt kmsItemEncryptionTable.Arn
         - Action: kms:Decrypt
           Effect: Allow
-          Resource: arn:aws:kms:eu-north-1:161456459824:key/a6962c8b-7cb5-48e0-8b20-15734c824f50
+          Resource: !Ref KMSKeyArn
 
   noEncryptionTable:
     Type: AWS::DynamoDB::Table
